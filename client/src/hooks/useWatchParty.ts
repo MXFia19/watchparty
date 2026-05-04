@@ -64,13 +64,13 @@ export function useWatchParty({ roomId, userId, pseudo, avatar, onVideoChange, o
         setRoomState(res.state);
         setHostId(res.state.hostId);
         console.log('[WatchParty] État initial reçu:', res.state);
-        if (res.state.videoUrl) {
-          console.log('[WatchParty] Appel onVideoChange initial:', res.state.videoUrl);
-          onVideoChange?.(res.state.videoUrl);
-          // Petit délai pour laisser le player charger la source avant d'appliquer la sync
+        const state = res.state;
+        if (state?.videoUrl) {
+          console.log('[WatchParty] Appel onVideoChange initial:', state.videoUrl);
+          onVideoChange?.(state.videoUrl);
           setTimeout(() => {
-            console.log('[WatchParty] Appel onSync initial:', res.state.playing, res.state.currentTime);
-            onSync?.(res.state.playing, res.state.currentTime);
+            console.log('[WatchParty] Appel onSync initial:', state.playing, state.currentTime);
+            onSync?.(state.playing, state.currentTime);
           }, 500);
         }
       }
