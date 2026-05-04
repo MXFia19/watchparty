@@ -10,6 +10,7 @@ interface Room {
   name: string;
   video_url: string | null;
   created_at: number;
+  host_id: string;
 }
 
 export default function Home() {
