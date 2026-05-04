@@ -19,51 +19,61 @@ interface VideoPlayerProps {
 
 const SYNC_THRESHOLD = 2;
 
+// CSS injecté une seule fois pour bloquer les contrôles spectateur
+const SPECTATOR_CSS = `
+  /* Bloquer play/pause et seek — garder volume, fullscreen, sous-titres, audio */
+  [data-spectator] .vds-play-button { pointer-events: none !important; opacity: 0.35 !important; }
+  [data-spectator] .vds-seek-button { pointer-events: none !important; opacity: 0.35 !important; }
+  [data-spectator] .vds-time-slider { pointer-events: none !important; opacity: 0.35 !important; cursor: default !important; }
+  [data-spectator] .vds-slider-chapter { pointer-events: none !important; }
+  [data-spectator] .vds-chapters-radio-group { pointer-events: none !important; }
+  /* Garder accessibles : volume, fullscreen, sous-titres, qualité, audio */
+  [data-spectator] .vds-mute-button { pointer-events: auto !important; opacity: 1 !important; }
+  [data-spectator] .vds-fullscreen-button { pointer-events: auto !important; opacity: 1 !important; }
+  [data-spectator] .vds-menu-button { pointer-events: auto !important; opacity: 1 !important; }
+  [data-spectator] .vds-volume-slider { pointer-events: auto !important; opacity: 1 !important; }
+`;
+
 export default function VideoPlayer({ src, playing, currentTime, isHost, onSync }: VideoPlayerProps) {
   const playerRef = useRef<MediaPlayerInstance>(null);
+  const containerRef = useRef<HTMLDivElement>(null);
   const ignoreEventsRef = useRef(false);
   const readyRef = useRef(false);
 
-  // Réinitialiser readyRef quand la source change
+  // Injecter le CSS spectateur une seule fois
   useEffect(() => {
-    readyRef.current = false;
-  }, [src]);
+    if (document.getElementById('spectator-css')) return;
+    const style = document.createElement('style');
+    style.id = 'spectator-css';
+    style.textContent = SPECTATOR_CSS;
+    document.head.appendChild(style);
+  }, []);
 
-  // ── Appliquer la sync reçue (spectateurs) ─────────────────────────────────
+  useEffect(() => { readyRef.current = false; }, [src]);
+
+  // ── Sync reçue (spectateurs) ───────────────────────────────────────────────
   useEffect(() => {
     const player = playerRef.current;
-    console.log('[VideoPlayer] sync effect:', { playing, currentTime, isHost, ready: readyRef.current });
     if (!player || isHost) return;
 
     const applySync = () => {
       ignoreEventsRef.current = true;
-
       if (Math.abs(player.currentTime - currentTime) > SYNC_THRESHOLD) {
-        console.log('[VideoPlayer] seek to', currentTime);
         player.currentTime = currentTime;
       }
-
       if (playing && player.paused) {
-        console.log('[VideoPlayer] play()');
-        player.play().catch((e) => console.warn('[VideoPlayer] play() échoué:', e));
+        player.play().catch(() => {});
       } else if (!playing && !player.paused) {
-        console.log('[VideoPlayer] pause()');
         player.pause();
       }
-
       setTimeout(() => { ignoreEventsRef.current = false; }, 300);
     };
 
     if (readyRef.current) {
       applySync();
     } else {
-      // Attendre que le player soit prêt
       const unsub = player.subscribe(({ canPlay }) => {
-        if (canPlay) {
-          readyRef.current = true;
-          applySync();
-          unsub();
-        }
+        if (canPlay) { readyRef.current = true; applySync(); unsub(); }
       });
       return () => unsub();
     }
@@ -72,14 +82,12 @@ export default function VideoPlayer({ src, playing, currentTime, isHost, onSync 
   // ── Callbacks host ─────────────────────────────────────────────────────────
   const handlePlay = useCallback(() => {
     if (!isHost || ignoreEventsRef.current) return;
-    const t = playerRef.current?.currentTime ?? 0;
-    onSync(true, t);
+    onSync(true, playerRef.current?.currentTime ?? 0);
   }, [isHost, onSync]);
 
   const handlePause = useCallback(() => {
     if (!isHost || ignoreEventsRef.current) return;
-    const t = playerRef.current?.currentTime ?? 0;
-    onSync(false, t);
+    onSync(false, playerRef.current?.currentTime ?? 0);
   }, [isHost, onSync]);
 
   const handleSeeked = useCallback(() => {
@@ -89,9 +97,7 @@ export default function VideoPlayer({ src, playing, currentTime, isHost, onSync 
     onSync(!player.paused, player.currentTime);
   }, [isHost, onSync]);
 
-  const handleCanPlay = useCallback(() => {
-    readyRef.current = true;
-  }, []);
+  const handleCanPlay = useCallback(() => { readyRef.current = true; }, []);
 
   if (!src) {
     return (
@@ -106,10 +112,14 @@ export default function VideoPlayer({ src, playing, currentTime, isHost, onSync 
   }
 
   return (
-    <div className="relative w-full rounded-xl overflow-hidden aspect-video">
+    <div
+      ref={containerRef}
+      className="relative w-full rounded-xl overflow-hidden aspect-video"
+      {...(!isHost ? { 'data-spectator': '' } : {})}
+    >
       {/* Badge spectateur */}
       {!isHost && (
-        <div className="absolute top-3 left-3 z-10 bg-black/70 text-xs text-gray-300 px-2 py-1 rounded-full pointer-events-none select-none">
+        <div className="absolute top-3 left-3 z-30 bg-black/70 text-xs text-gray-300 px-2 py-1 rounded-full pointer-events-none select-none">
           👁 Mode spectateur
         </div>
       )}
@@ -126,18 +136,16 @@ export default function VideoPlayer({ src, playing, currentTime, isHost, onSync 
         keyDisabled={!isHost}
       >
         <MediaProvider />
-        <DefaultVideoLayout
-          icons={defaultLayoutIcons}
-          // Pour les spectateurs : masquer play/seek mais garder volume + fullscreen + sous-titres
-          noScrubGesture={!isHost}
-        />
+        <DefaultVideoLayout icons={defaultLayoutIcons} />
       </MediaPlayer>
 
-      {/* Overlay transparent pour bloquer les clics des spectateurs sur le player */}
+      {/* Overlay sur la zone vidéo uniquement (pas la barre de contrôle) pour bloquer double-clic */}
       {!isHost && (
         <div
-          className="absolute inset-0 z-20"
-          style={{ pointerEvents: 'none' }}
+          className="absolute inset-x-0 top-0 z-20"
+          style={{ bottom: '48px', cursor: 'default' }}
+          onClick={(e) => e.stopPropagation()}
+          onDoubleClick={(e) => e.stopPropagation()}
         />
       )}
     </div>

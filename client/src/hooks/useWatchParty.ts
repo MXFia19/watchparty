@@ -65,8 +65,13 @@ export function useWatchParty({ roomId, userId, pseudo, avatar, onVideoChange, o
         setHostId(res.state.hostId);
         console.log('[WatchParty] État initial reçu:', res.state);
         if (res.state.videoUrl) {
-          console.log('[WatchParty] Appel onSync initial:', res.state.playing, res.state.currentTime);
-          onSync?.(res.state.playing, res.state.currentTime);
+          console.log('[WatchParty] Appel onVideoChange initial:', res.state.videoUrl);
+          onVideoChange?.(res.state.videoUrl);
+          // Petit délai pour laisser le player charger la source avant d'appliquer la sync
+          setTimeout(() => {
+            console.log('[WatchParty] Appel onSync initial:', res.state.playing, res.state.currentTime);
+            onSync?.(res.state.playing, res.state.currentTime);
+          }, 500);
         }
       }
       setJoined(true);
