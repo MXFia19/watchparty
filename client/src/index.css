@@ -1,0 +1,47 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  body {
+    @apply bg-dark-900 text-white font-sans antialiased;
+  }
+
+  ::-webkit-scrollbar { width: 6px; }
+  ::-webkit-scrollbar-track { @apply bg-dark-800; }
+  ::-webkit-scrollbar-thumb { @apply bg-dark-600 rounded-full; }
+}
+
+@layer components {
+  .btn-primary {
+    @apply bg-brand-500 hover:bg-brand-600 text-white font-semibold px-4 py-2 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed;
+  }
+  .btn-secondary {
+    @apply bg-dark-700 hover:bg-dark-600 text-white font-semibold px-4 py-2 rounded-lg transition-colors;
+  }
+  .input {
+    @apply bg-dark-700 border border-dark-600 text-white placeholder-gray-500 rounded-lg px-3 py-2 w-full focus:outline-none focus:border-brand-500 transition-colors;
+  }
+  .card {
+    @apply bg-dark-800 rounded-xl border border-dark-700 p-4;
+  }
+}
+
+/* ── Thème Vidstack ─────────────────────────────────────────────────────── */
+:root {
+  --video-brand: #5b7fff;
+  --video-focus-ring-color: #5b7fff;
+}
+
+.vds-video-layout {
+  --audio-bg: #13162a;
+  --menu-bg: #13162a;
+  --menu-border-color: #1c2040;
+  --menu-item-hover-bg: #1c2040;
+}
+
+/* Masquer les contrôles du player pour les spectateurs */
+[data-spectator] .vds-play-button,
+[data-spectator] .vds-seek-button {
+  display: none !important;
+}
