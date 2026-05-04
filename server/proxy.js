@@ -1,5 +1,3 @@
-
-
 /**
  * Proxy de stream — le serveur télécharge le contenu à la place du navigateur.
  * Utilisé pour contourner les restrictions CORS/Referer des serveurs vidéo.
@@ -65,20 +63,21 @@ export function setupProxy(app) {
  * Réécrire les URLs dans un fichier M3U8 pour qu'elles passent toutes par le proxy.
  */
 function rewriteM3U8(content, baseUrl, referer, origin, userAgent, req) {
-  const proxyBase = `${req.protocol}://${req.get('host')}/proxy/stream`;
+  // Forcer HTTPS en production (Railway) pour éviter les erreurs mixed-content
+  const protocol = req.get('x-forwarded-proto') || req.protocol;
+  const proxyBase = `${protocol}://${req.get('host')}/proxy/stream`;
 
   const buildProxyUrl = (url) => {
-    // URL absolue
+    let absoluteUrl;
+
     if (url.startsWith('http://') || url.startsWith('https://')) {
-      const params = new URLSearchParams({ url });
-      if (referer) params.set('referer', referer);
-      if (origin) params.set('origin', origin);
-      if (userAgent) params.set('userAgent', userAgent);
-      return `${proxyBase}?${params.toString()}`;
+      absoluteUrl = url;
+    } else if (url.startsWith('//')) {
+      absoluteUrl = 'https:' + url;
+    } else {
+      absoluteUrl = baseUrl + url;
     }
 
-    // URL relative
-    const absoluteUrl = baseUrl + url;
     const params = new URLSearchParams({ url: absoluteUrl });
     if (referer) params.set('referer', referer);
     if (origin) params.set('origin', origin);
