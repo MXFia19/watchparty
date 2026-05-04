@@ -4,6 +4,7 @@ import { createServer } from 'http';
 import { Server } from 'socket.io';
 import cors from 'cors';
 import routes from './routes.js';
+import { setupProxy } from './proxy.js';
 import { setupSockets } from './sockets.js';
 
 const app = express();
@@ -56,6 +57,7 @@ const io = new Server(httpServer, {
 });
 
 setupSockets(io);
+setupProxy(app);
 app.use('/api', routes);
 app.get('/health', (_, res) => res.json({ ok: true, origin: 'watchparty-server' }));
 

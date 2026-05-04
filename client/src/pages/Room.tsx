@@ -6,6 +6,7 @@ import VideoPlayer from '../components/VideoPlayer';
 import Chat from '../components/Chat';
 import MemberList from '../components/MemberList';
 import Avatar from '../components/Avatar';
+import { toProxyUrl, needsProxy } from '../utils/proxy';
 import VideoUrlInput from '../components/VideoUrlInput';
 
 const SERVER_URL = import.meta.env.VITE_SERVER_URL || 'http://localhost:3001';
@@ -26,18 +27,22 @@ export default function Room() {
   const [syncPlaying, setSyncPlaying] = useState(false);
   const [syncTime, setSyncTime] = useState(0);
 
-  const handleVideoChange = useCallback((url: string) => {
-    setVideoSrc(url);
-    setSyncPlaying(false);
-    setSyncTime(0);
-    setVideoHeaders({});
-  }, []);
+
 
   // Reçu depuis le serveur (spectateurs) — mettre à jour le player local
   const handleSyncReceived = useCallback((playing: boolean, currentTime: number) => {
     console.log('[Room] handleSyncReceived appelé:', { playing, currentTime, isHost: false });
     setSyncPlaying(playing);
     setSyncTime(currentTime);
+  }, []);
+
+  // Quand le host change la vidéo — proxifier pour les spectateurs aussi
+  const handleVideoChange = useCallback((url: string) => {
+    const srcToPlay = needsProxy(url) ? toProxyUrl(url) : url;
+    setVideoSrc(srcToPlay);
+    setSyncPlaying(false);
+    setSyncTime(0);
+    setVideoHeaders({});
   }, []);
 
   // Quand on est kické — afficher un message 2s puis rediriger
@@ -82,8 +87,11 @@ export default function Room() {
   }, [syncPlayState]);
 
   const handleChangeVideo = (url: string, headers: Record<string, string>) => {
+    // Envoyer l'URL originale aux autres membres via socket
     changeVideo(url);
-    setVideoSrc(url);
+    // Mais jouer localement via le proxy si nécessaire
+    const srcToPlay = needsProxy(url) ? toProxyUrl(url, headers) : url;
+    setVideoSrc(srcToPlay);
     setVideoHeaders(headers);
     setNewVideoUrl('');
     setShowUrlInput(false);
