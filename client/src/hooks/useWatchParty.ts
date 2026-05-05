@@ -229,10 +229,6 @@ export function useWatchParty({ roomId, userId, pseudo, avatar, onVideoChange, o
     });
   }, [socket]);
 
-  const setSyncMode = useCallback((mode: 'classic' | 'pro') => {
-    // setSyncMode est exposé directement via le state
-  }, []);
-
   const toggleCollaborativeMode = useCallback((enabled: boolean) => {
     if (!isHost) return;
     socket?.emit('room:toggle_collaborative', { roomId, userId, enabled });
