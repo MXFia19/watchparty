@@ -1,4 +1,4 @@
-import { useEffect, useRef, useCallback } from 'react';
+import { useEffect, useRef, useCallback, useState } from 'react';
 import {
   MediaPlayer,
   MediaProvider,
@@ -38,6 +38,8 @@ export default function VideoPlayer({ src, playing, currentTime, isHost, onSync 
   const playerRef = useRef<MediaPlayerInstance>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const ignoreEventsRef = useRef(false);
+  const [muted, setMuted] = useState(false);
+  const [isFullscreen, setIsFullscreen] = useState(false);
   const readyRef = useRef(false);
 
   // Injecter le CSS spectateur une seule fois
@@ -139,14 +141,24 @@ export default function VideoPlayer({ src, playing, currentTime, isHost, onSync 
         <DefaultVideoLayout icons={defaultLayoutIcons} />
       </MediaPlayer>
 
-      {/* Overlay sur la zone vidéo uniquement (pas la barre de contrôle) pour bloquer double-clic */}
+      {/* Overlay spectateur — bloque play/seek/click mais garde volume + fullscreen */}
       {!isHost && (
-        <div
-          className="absolute inset-x-0 top-0 z-20"
-          style={{ bottom: '48px', cursor: 'default' }}
-          onClick={(e) => e.stopPropagation()}
-          onDoubleClick={(e) => e.stopPropagation()}
-        />
+        <>
+          {/* Overlay qui bloque les clics sur la zone vidéo */}
+          <div
+            className="absolute inset-x-0 top-0 z-20"
+            style={{ bottom: '52px', cursor: 'default' }}
+            onClick={(e) => e.stopPropagation()}
+            onDoubleClick={(e) => e.stopPropagation()}
+            onMouseDown={(e) => e.stopPropagation()}
+            onPointerDown={(e) => e.stopPropagation()}
+          />
+          {/* Overlay sur la barre de contrôle sauf les boutons autorisés */}
+          <div
+            className="absolute inset-x-0 z-20"
+            style={{ bottom: 0, height: '52px', cursor: 'default', pointerEvents: 'none' }}
+          />
+        </>
       )}
     </div>
   );

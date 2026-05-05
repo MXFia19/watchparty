@@ -2,7 +2,7 @@ import {
   createRoomState, getRoom, deleteRoomState,
   addMember, removeMember, updatePlayState,
   updateVideoUrl, getRoomMembers, getMemberCount,
-  isHost, transferHost,
+  isHost, transferHost, setCollaborativeMode,
 } from './roomManager.js';
 import { db } from './db.js';
 
@@ -37,14 +37,18 @@ export function setupSockets(io) {
 
     socket.on('player:sync', ({ roomId, playing, currentTime, userId }) => {
       const room = getRoom(roomId);
-      if (!room || (room.hostId !== userId && getMemberCount(roomId) > 1)) return;
+      if (!room) return;
+      // En mode normal : seul le host peut contrôler
+      // En mode collaboratif : tout le monde peut contrôler
+      if (!room.collaborativeMode && room.hostId !== userId && getMemberCount(roomId) > 1) return;
       updatePlayState(roomId, { playing, currentTime });
       socket.to(roomId).emit('player:sync', { playing, currentTime, from: userId });
     });
 
     socket.on('player:change_video', ({ roomId, videoUrl, userId }) => {
       const room = getRoom(roomId);
-      if (!room || room.hostId !== userId) return;
+      if (!room) return;
+      if (!room.collaborativeMode && room.hostId !== userId) return;
       updateVideoUrl(roomId, videoUrl);
       db.updateRoom(roomId, { video_url: videoUrl });
       io.to(roomId).emit('player:change_video', { videoUrl });
@@ -80,6 +84,15 @@ export function setupSockets(io) {
         io.to(roomId).emit('room:user_left', { userId: targetUserId, pseudo: target.pseudo });
         console.log(`[Room ${roomId}] ${target.pseudo} a été kické`);
       }
+    });
+
+    socket.on('room:toggle_collaborative', ({ roomId, userId, enabled }) => {
+      // Seul le host peut activer/désactiver le mode collaboratif
+      if (!isHost(roomId, userId)) return;
+      const room = setCollaborativeMode(roomId, enabled);
+      if (!room) return;
+      io.to(roomId).emit('room:collaborative_changed', { enabled });
+      console.log(`[Room ${roomId}] Mode collaboratif : ${enabled ? 'ON' : 'OFF'}`);
     });
 
     socket.on('room:transfer_host', ({ roomId, newHostId, userId }) => {

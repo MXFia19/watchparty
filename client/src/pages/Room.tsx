@@ -69,6 +69,8 @@ export default function Room() {
     sendMessage,
     kickMember,
     transferHostTo,
+    collaborativeMode,
+    toggleCollaborativeMode,
   } = useWatchParty({
     roomId: roomId || '',
     userId: user?.id || '',
@@ -192,6 +194,20 @@ export default function Room() {
           <span className="text-xs text-gray-500">{members.length} en ligne</span>
           {isHost && (
             <button
+              onClick={() => toggleCollaborativeMode(!collaborativeMode)}
+              className={`text-xs flex items-center gap-1 transition-colors px-2 py-1 rounded-lg ${
+                collaborativeMode
+                  ? 'bg-green-500/20 text-green-400 hover:bg-green-500/30'
+                  : 'bg-dark-700 text-gray-400 hover:text-gray-200'
+              }`}
+              title={collaborativeMode ? 'Désactiver le mode collaboratif' : 'Activer le mode collaboratif'}
+            >
+              {collaborativeMode ? '🤝' : '👑'}
+              <span className="hidden sm:inline">{collaborativeMode ? 'Collaboratif' : 'Host only'}</span>
+            </button>
+          )}
+          {isHost && (
+            <button
               onClick={handleDeleteRoom}
               className="text-xs text-gray-500 hover:text-red-400 flex items-center gap-1 transition-colors ml-1"
               title="Supprimer la room"
@@ -214,7 +230,7 @@ export default function Room() {
             headers={videoHeaders}
             playing={syncPlaying}
             currentTime={syncTime}
-            isHost={isHost}
+            isHost={isHost || collaborativeMode}
             onSync={handleSync}
           />
 

@@ -18,6 +18,7 @@ export function createRoomState(roomId, hostId, videoUrl = null) {
     playing: false,
     currentTime: 0,
     lastSyncAt: Date.now(),
+    collaborativeMode: false,
     members: new Map(), // socketId → { userId, pseudo, avatar }
   };
   rooms.set(roomId, state);
@@ -83,5 +84,12 @@ export function transferHost(roomId, newHostId) {
   const room = rooms.get(roomId);
   if (!room) return null;
   room.hostId = newHostId;
+  return room;
+}
+
+export function setCollaborativeMode(roomId, enabled) {
+  const room = rooms.get(roomId);
+  if (!room) return null;
+  room.collaborativeMode = enabled;
   return room;
 }

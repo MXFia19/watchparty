@@ -21,6 +21,7 @@ interface RoomState {
   playing: boolean;
   currentTime: number;
   hostId: string;
+  collaborativeMode: boolean;
 }
 
 interface UseWatchPartyOptions {
@@ -43,6 +44,7 @@ export function useWatchParty({ roomId, userId, pseudo, avatar, onVideoChange, o
   const [roomState, setRoomState] = useState<RoomState | null>(null);
   const [joined, setJoined] = useState(false);
   const [joinError, setJoinError] = useState<string | null>(null);
+  const [collaborativeMode, setCollaborativeMode] = useState(false);
 
   const isHost = hostId === userId;
 
@@ -65,6 +67,7 @@ export function useWatchParty({ roomId, userId, pseudo, avatar, onVideoChange, o
         setHostId(res.state.hostId);
         console.log('[WatchParty] État initial reçu:', res.state);
         const state = res.state;
+        setCollaborativeMode(state?.collaborativeMode ?? false);
         if (state?.videoUrl) {
           console.log('[WatchParty] Appel onVideoChange initial:', state.videoUrl);
           onVideoChange?.(state.videoUrl);
@@ -102,6 +105,15 @@ export function useWatchParty({ roomId, userId, pseudo, avatar, onVideoChange, o
       setRoomState((prev) => prev ? { ...prev, videoUrl, playing: false, currentTime: 0 } : prev);
       onVideoChange?.(videoUrl);
       onSync?.(false, 0);
+    };
+
+    const onCollaborativeChanged = ({ enabled }: { enabled: boolean }) => {
+      setCollaborativeMode(enabled);
+      setMessages((prev) => [...prev, {
+        userId: 'system', pseudo: 'Système',
+        message: enabled ? '🤝 Mode collaboratif activé — tout le monde peut contrôler' : '👑 Mode normal — seul le host contrôle',
+        timestamp: Date.now(),
+      }]);
     };
 
     const onHostChanged = ({ newHostId }: { newHostId: string }) => {
@@ -143,6 +155,7 @@ export function useWatchParty({ roomId, userId, pseudo, avatar, onVideoChange, o
 
     console.log('[WatchParty] Enregistrement des listeners socket');
     socket.on('room:members', onMembers);
+    socket.on('room:collaborative_changed', onCollaborativeChanged);
     socket.on('player:sync', onSyncEvent);
     socket.on('player:change_video', onVideoChanged);
     socket.on('room:host_changed', onHostChanged);
@@ -153,6 +166,7 @@ export function useWatchParty({ roomId, userId, pseudo, avatar, onVideoChange, o
 
     return () => {
       socket.off('room:members', onMembers);
+    socket.off('room:collaborative_changed', onCollaborativeChanged);
       socket.off('player:sync', onSyncEvent);
       socket.off('player:change_video', onVideoChanged);
       socket.off('room:host_changed', onHostChanged);
@@ -188,6 +202,11 @@ export function useWatchParty({ roomId, userId, pseudo, avatar, onVideoChange, o
     socket?.emit('room:kick', { roomId, targetUserId, userId });
   }, [socket, roomId, userId, isHost]);
 
+  const toggleCollaborativeMode = useCallback((enabled: boolean) => {
+    if (!isHost) return;
+    socket?.emit('room:toggle_collaborative', { roomId, userId, enabled });
+  }, [socket, roomId, userId, isHost]);
+
   const transferHostTo = useCallback((newHostId: string) => {
     if (!isHost) return;
     socket?.emit('room:transfer_host', { roomId, newHostId, userId });
@@ -207,5 +226,7 @@ export function useWatchParty({ roomId, userId, pseudo, avatar, onVideoChange, o
     sendMessage,
     kickMember,
     transferHostTo,
+    collaborativeMode,
+    toggleCollaborativeMode,
   };
 }
