@@ -60,6 +60,33 @@ export function setupSockets(io) {
       socket.emit('player:sync', { playing: room.playing, currentTime: room.currentTime, from: 'server' });
     });
 
+    // ── Sync Pro — probe d'horloge ──────────────────────────────────────────
+    socket.on('sync:probe', ({ probeId, clientSentAt }) => {
+      const serverNow = Date.now();
+      socket.emit('sync:probeResult', {
+        probeId,
+        clientSentAt,
+        serverReceivedAt: serverNow,
+        serverSentAt: serverNow, // même valeur car traitement instantané
+      });
+    });
+
+    // ── Ready toggle ─────────────────────────────────────────────────────────
+    socket.on('ready:toggle', ({ roomId, userId, ready }) => {
+      const room = getRoom(roomId);
+      if (!room) return;
+      const member = room.members.get(socket.id);
+      if (!member) return;
+      member.ready = ready;
+      // Broadcast la liste des ready à tout le monde
+      const readyList = getRoomMembers(roomId).map(m => ({
+        userId: m.userId,
+        pseudo: m.pseudo,
+        ready: m.ready || false,
+      }));
+      io.to(roomId).emit('ready:update', readyList);
+    });
+
     socket.on('chat:message', ({ roomId, userId, pseudo, avatar, message }) => {
       if (!message?.trim() || message.length > 500) return;
       io.to(roomId).emit('chat:message', { userId, pseudo, avatar, message: message.trim(), timestamp: Date.now() });

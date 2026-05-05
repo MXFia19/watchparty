@@ -45,6 +45,10 @@ export function useWatchParty({ roomId, userId, pseudo, avatar, onVideoChange, o
   const [joined, setJoined] = useState(false);
   const [joinError, setJoinError] = useState<string | null>(null);
   const [collaborativeMode, setCollaborativeMode] = useState(false);
+  const [isReady, setIsReady] = useState(false);
+  const [readyList, setReadyList] = useState<Array<{userId: string; pseudo: string; ready: boolean}>>([]);
+  const [syncMode, setSyncMode] = useState<'classic' | 'pro'>('classic');
+  const [masterUpdatedAt, setMasterUpdatedAt] = useState<number>(Date.now());
 
   const isHost = hostId === userId;
 
@@ -96,6 +100,7 @@ export function useWatchParty({ roomId, userId, pseudo, avatar, onVideoChange, o
 
     const onSyncEvent = ({ playing, currentTime }: { playing: boolean; currentTime: number }) => {
       console.log('[WatchParty] player:sync reçu:', { playing, currentTime });
+      setMasterUpdatedAt(Date.now());
       setRoomState((prev) => prev ? { ...prev, playing, currentTime } : prev);
       onSync?.(playing, currentTime);
     };
@@ -105,6 +110,10 @@ export function useWatchParty({ roomId, userId, pseudo, avatar, onVideoChange, o
       setRoomState((prev) => prev ? { ...prev, videoUrl, playing: false, currentTime: 0 } : prev);
       onVideoChange?.(videoUrl);
       onSync?.(false, 0);
+    };
+
+    const onReadyUpdate = (list: Array<{userId: string; pseudo: string; ready: boolean}>) => {
+      setReadyList(list);
     };
 
     const onCollaborativeChanged = ({ enabled }: { enabled: boolean }) => {
@@ -155,6 +164,7 @@ export function useWatchParty({ roomId, userId, pseudo, avatar, onVideoChange, o
 
     console.log('[WatchParty] Enregistrement des listeners socket');
     socket.on('room:members', onMembers);
+    socket.on('ready:update', onReadyUpdate);
     socket.on('room:collaborative_changed', onCollaborativeChanged);
     socket.on('player:sync', onSyncEvent);
     socket.on('player:change_video', onVideoChanged);
@@ -166,6 +176,7 @@ export function useWatchParty({ roomId, userId, pseudo, avatar, onVideoChange, o
 
     return () => {
       socket.off('room:members', onMembers);
+    socket.off('ready:update', onReadyUpdate);
     socket.off('room:collaborative_changed', onCollaborativeChanged);
       socket.off('player:sync', onSyncEvent);
       socket.off('player:change_video', onVideoChanged);
@@ -202,6 +213,26 @@ export function useWatchParty({ roomId, userId, pseudo, avatar, onVideoChange, o
     socket?.emit('room:kick', { roomId, targetUserId, userId });
   }, [socket, roomId, userId, isHost]);
 
+  const toggleReady = useCallback((ready: boolean) => {
+    setIsReady(ready);
+    socket?.emit('ready:toggle', { roomId, userId, ready });
+  }, [socket, roomId, userId]);
+
+  const sendProbe = useCallback(() => {
+    const probeId = Math.random().toString(36).slice(2);
+    const clientSentAt = Date.now();
+    socket?.emit('sync:probe', { probeId, clientSentAt });
+    return new Promise<void>((resolve) => {
+      socket?.once('sync:probeResult', (result) => {
+        resolve();
+      });
+    });
+  }, [socket]);
+
+  const setSyncMode = useCallback((mode: 'classic' | 'pro') => {
+    // setSyncMode est exposé directement via le state
+  }, []);
+
   const toggleCollaborativeMode = useCallback((enabled: boolean) => {
     if (!isHost) return;
     socket?.emit('room:toggle_collaborative', { roomId, userId, enabled });
@@ -228,5 +259,11 @@ export function useWatchParty({ roomId, userId, pseudo, avatar, onVideoChange, o
     transferHostTo,
     collaborativeMode,
     toggleCollaborativeMode,
+    isReady,
+    readyList,
+    toggleReady,
+    syncMode,
+    setSyncMode,
+    masterUpdatedAt,
   };
 }

@@ -8,6 +8,7 @@ import MemberList from '../components/MemberList';
 import Avatar from '../components/Avatar';
 import { toProxyUrl, needsProxy } from '../utils/proxy';
 import VideoUrlInput from '../components/VideoUrlInput';
+import ReadyToggle from '../components/ReadyToggle';
 
 const SERVER_URL = import.meta.env.VITE_SERVER_URL || 'http://localhost:3001';
 
@@ -71,6 +72,12 @@ export default function Room() {
     transferHostTo,
     collaborativeMode,
     toggleCollaborativeMode,
+    isReady,
+    readyList,
+    toggleReady,
+    syncMode,
+    setSyncMode,
+    masterUpdatedAt,
   } = useWatchParty({
     roomId: roomId || '',
     userId: user?.id || '',
@@ -231,11 +238,35 @@ export default function Room() {
             playing={syncPlaying}
             currentTime={syncTime}
             isHost={isHost || collaborativeMode}
+            syncMode={syncMode}
+            masterUpdatedAt={masterUpdatedAt}
             onSync={handleSync}
+          />
+
+          {/* Ready Toggle — visible par tous */}
+          <ReadyToggle
+            readyList={readyList}
+            currentUserId={user.id}
+            isReady={isReady}
+            onToggle={toggleReady}
+            isHost={isHost}
+            onStartWhenReady={() => {
+              syncPlayState(true, syncTime);
+              setSyncPlaying(true);
+            }}
           />
 
           {isHost && (
             <div>
+              <div className="flex items-center gap-2 mb-3">
+                <span className="text-xs text-gray-500">Mode sync :</span>
+                <button
+                  onClick={() => setSyncMode(syncMode === 'classic' ? 'pro' : 'classic')}
+                  className={`text-xs px-2 py-1 rounded-lg transition-colors ${syncMode === 'pro' ? 'bg-brand-500/20 text-brand-400' : 'bg-dark-700 text-gray-400'}`}
+                >
+                  {syncMode === 'pro' ? '⚡ Sync Pro' : '⚡ Classic'}
+                </button>
+              </div>
               {showUrlInput ? (
                 <VideoUrlInput
                   currentUrl={videoSrc}
